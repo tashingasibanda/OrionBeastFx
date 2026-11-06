@@ -27,11 +27,11 @@ public class MainActivity extends Activity {
             return insets.consumeSystemWindowInsets();
         });
         web=new WebView(this);host.addView(web);setContentView(host);
-        bars(Store.prefs(this).getBoolean("dark",false));
+        bars(Store.prefs(this).getBoolean("dark",true));
         WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);
         settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);
         settings.setDomStorageEnabled(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        web.setBackgroundColor(Color.parseColor(Store.prefs(this).getBoolean("dark",false)?"#121212":"#F7F4ED"));
+        web.setBackgroundColor(Color.parseColor(Store.prefs(this).getBoolean("dark",true)?"#121212":"#F7F4ED"));
         web.addJavascriptInterface(new Bridge(),"Orion");
         web.setWebViewClient(new WebViewClient(){
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){return true;}
@@ -46,7 +46,7 @@ public class MainActivity extends Activity {
                 out.put("active",AlertService.active);
                 out.put("status",AlertService.active?Store.prefs(MainActivity.this).getString("status","Connecting"):"Offline");
                 out.put("state",Store.state(MainActivity.this));out.put("inbox",Store.inbox(MainActivity.this));
-                out.put("dark",Store.prefs(MainActivity.this).getBoolean("dark",false));
+                out.put("dark",Store.prefs(MainActivity.this).getBoolean("dark",true));
                 out.put("stale",Store.prefs(MainActivity.this).getInt("stale",300));
                 out.put("server",Store.server(MainActivity.this));out.put("topic",Store.topic(MainActivity.this));
                 out.put("token",Store.token(MainActivity.this));return out.toString();

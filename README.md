@@ -1,3 +1,26 @@
+# OrionBeastFx v4 — Home layout update
+
+**This archive is Android source code, NOT an installable APK.** Build using the included GitHub Actions workflow, then install the APK from its successful build artifact. The source layout was browser-tested; Android compilation and phone notification delivery were not verified here. Android 8.0 or newer is required (minSdk 26).
+
+## Home actions
+- Trade opens received EA alerts in Trader; it does not place orders.
+- Quotes explains that no quote feed is connected and links to EA Watch/Standby symbols.
+- Analyzer opens Symbols. History shows received messages.
+- AI Chat clearly reports that no AI provider is connected; AI Insight describes received data only.
+- Remove asks before closing this phone's receiver connection; it does not delete saved data or remove an EA from MetaTrader.
+- Bot Stopped describes the phone receiver. CONNECTED reflects the actual ntfy stream.
+- New installs default to dark mode; existing saved preferences remain unchanged.
+
+## Building and installing
+1. Extract the archive and upload the contents of the OrionBeastFx folder (including .github) to the repository root.
+2. Run Actions > Build OrionBeastFx APK > Run workflow.
+3. Download the OrionBeastFx-debug-APK artifact after the build succeeds. Extract it and install app-debug.apk, not this project ZIP.
+4. Allow installation from your browser/file manager when Android requests it.
+5. If installation fails, keep the previous app and capture the exact Android error. An incompatible signing key can prevent updates; do not uninstall without backing up data and understanding data loss.
+
+---
+Previous project documentation (some Home layout descriptions below are superseded by v4):
+
 # OrionBeastFx Android v3
 
 An Android ntfy trading-alert receiver with an offline bundled SVG interface.

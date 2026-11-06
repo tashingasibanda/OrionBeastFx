@@ -1,2 +1,9 @@
-# 3.0
-Rebranded OrionBeastFx throughout; fixed background and removed picker; SVG toolbar/navigation; floating safe-area bottom bar; green STOP LIVE/red START LIVE; persisted light/dark mode; preserved native ntfy service, summary, signal inbox, history and Watch/Standby terminal.
+# OrionBeastFx v4
+
+- Replaced Home summary/status cards with full-width lion hero and action layout.
+- Blue Trade / Quotes / Remove bar; status row; Analyzer / History / AI Chat / Remove tools.
+- Full-width pinned Home / Trader / Symbols / Settings SVG navigation.
+- Black and gold default appearance, saved light/dark choice retained.
+- Connected/live states still use native receiver state.
+- Remove prompts before closing the receiver connection; no stored data is deleted.
+- Receiver, permissions, event reducer and EA message formats unchanged.
