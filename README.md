@@ -1,46 +1,47 @@
-# Orion Beast FX — Android EA notification receiver
+# Star Beast FX Android receiver — ivory edition v2
 
-**Source project, not a compiled APK.** This project has not been compiled or tested on an Android device in the authoring environment, which has no Android SDK or Java. It does not execute trades.
+Native Android source project, updated from the Orion Beast FX project. This ZIP is NOT an APK.
 
-## Configuration
-- Server: https://ntfy.sh (HTTPS only)
-- Default topic: OrionBeastFx (case-sensitive)
-- Subscription stream: https://ntfy.sh/OrionBeastFx/json
-- Android 8.0 or newer (API 26); compile/target SDK 35.
-- Uses native Android Java APIs; no third-party runtime dependencies.
+## Build an installable APK
+1. Extract this ZIP. Upload the CONTENTS of the `OrionBeastFx` folder to your GitHub repository root, including `.github`.
+2. Open Actions → Build Star Beast FX APK → Run workflow.
+3. The workflow runs reducer unit tests, then builds a debug APK. Download `StarBeastFx-debug-APK`, extract it and install `app-debug.apk`.
+4. Allow notifications. Open Settings to set server/topic/token, then Start receiver. Android may ask permission to install unknown apps from your download app.
 
-## Generate the APK using GitHub (no computer SDK required)
-1. Create a GitHub repository you control.
-2. Extract this ZIP and upload the CONTENTS of the OrionBeastFx folder to the repository root. Include the hidden .github folder and all app subfolders. Do not upload only the ZIP.
-3. Open the repository Actions tab. Enable workflows if prompted. Select “Build Orion Beast FX APK” and “Run workflow” on your branch. The push trigger also runs on main/master.
-4. Wait for a green build. If it fails, inspect the logs; no APK exists unless the build succeeds.
-5. In the completed run, download the artifact “OrionBeastFx-debug-APK”. Extract it to get app-debug.apk.
-6. On your Android phone, open the APK and allow installation from that download/browser source if Android requests it. Only install artifacts from your own trusted repository. Disable that installation permission afterward if desired.
+Requires JDK 17, Gradle 8.9, Android SDK 35. Local command: `gradle :app:testDebugUnitTest :app:assembleDebug`.
+Debug builds use a development signing key. A later build may not update an existing install if signed with a different key; use a stable release signing key for upgrades. Uninstalling deletes local data.
 
-This produces an automatically debug-signed sideload APK, not a production/store release. GitHub build environments may use different debug signing keys: a later debug build may not update an earlier install without uninstalling it (which removes local history). Use a private stable release key for durable production updates. Do not share signing secrets in your repository.
+## What changed
+- Ivory/gold native interface inspired by your image: lion, chart artwork, Home / Signal / Terminal / Settings and Change Image.
+- Terminal is NOT a command console. It groups EA-reported symbols into On Watch and On Standby, with timeframe, reason, last update and stale indicator.
+- No sample symbols, trades, win rate or P/L in the running app. Empty data stays empty/—. Summary numbers require a valid EA summary for today's PHONE-local date. P/L is R units only; currency is not mixed into R.
+- Configurable HTTPS ntfy server, topic and optional Bearer token. The supplied defaults are https://ntfy.sh and OrionBeastFx, not locked settings.
+- Start Live uses ntfy's persistent HTTP JSON stream, NOT a WebSocket. The label intentionally says Live rather than WS.
+- History includes all received messages; Signal shows plain alerts and rejected structured messages. Up to 300 messages per configured server/topic. Terminal state and day summaries persist separately.
+- AI Insight is explicitly unconfigured; it does NOT fabricate model output or give fake trading advice.
 
-## Generate locally instead
-Install Android Studio, open this folder, let Gradle sync with JDK 17 and Android SDK 35, then use Build > Build APK(s). Alternatively, with Gradle 8.9 and the Android SDK installed, run `gradle :app:assembleDebug`. Output: app/build/outputs/apk/debug/app-debug.apk. A Gradle wrapper is not included; Android Studio or the supplied workflow provides Gradle.
+## Important: EA integration is required
+Read EA-INTEGRATION.md. Existing plain text notifications continue to work, but watch/standby cannot be inferred reliably from arbitrary prose. Your EA must send JSON in its ntfy message body. The EA source was not supplied and has NOT been modified.
 
-## Use
-1. Install and open Orion Beast FX.
-2. Keep topic OrionBeastFx, or change it to EXACTLY match your EA publisher.
-3. Tap Start receiving alerts and grant notification permission on Android 13+.
-4. Leave the ongoing receiver notification enabled. Alerts appear in the phone notification shade and the app inbox (latest 100 messages).
-5. To change topics, tap Stop, edit the topic, then Start. To stop listening, use the app Stop button or the ongoing notification Stop action.
-6. Your EA must already publish message bodies to https://ntfy.sh/OrionBeastFx. In MetaTrader, enable WebRequest for https://ntfy.sh if your EA uses WebRequest. The receiver cannot modify or verify your EA configuration.
+## Delivery, safety and privacy
+- Public topics are not private or authenticated; anyone who knows the topic may read/publish. Use a protected ntfy server/account/topic and token for private data.
+- Tokens are saved in app-private SharedPreferences, not encrypted with Android Keystore. Android backup is disabled. Use device encryption/lock, do not use a rooted/shared device for sensitive tokens.
+- No broker connection, auto-trading, trade placement or promised profits.
+- Connected means ntfy stream connected, NOT proof your EA is alive. Terminal displays last received server timestamp; after 300 seconds by default it is marked stale. Change threshold in Settings. EA timestamps in the message are not used; ntfy envelope time is used.
+- User-started foreground service with ongoing notification. No boot auto-start, no wake lock and no guaranteed delivery under Doze, force-stop, reboot, battery optimization or network loss. Restart manually after reboot/force-stop. Play Store foreground-service review may be required.
+- First listen starts now; reconnect resumes from last saved ntfy ID within available server retention. Send snapshots regularly and after starting a new phone; no old state appears automatically without messages.
+- Same endpoint/topic state is restored; a different endpoint/topic has a separate cache. Stop receiver before changing connection. Multiple EAs publishing the same symbol share one symbol row: use separate topics or aggregate states upstream.
 
-## Verify end to end
-After building/installing, publish a test message yourself to the topic from your EA or a trusted ntfy client. Confirm that the notification and inbox both show it with the app open, in the background, with the screen off, and after a temporary network loss. No test message was sent during project creation. A public topic may have other subscribers.
+## Verification status
+Archive integrity, Android XML and static source/configuration checks were performed during authoring. Reducer JUnit tests are included and configured to run in CI, but were NOT executed here. No Java/Gradle/Android SDK was available here: compilation, APK installation, on-phone appearance, background execution and live ntfy delivery remain UNVERIFIED. Build and test on a device before relying on alerts.
 
-## Security and operating limits
-- Public ntfy topics are NOT private or authenticated signals. Anyone who knows or guesses the topic can potentially read or publish messages. Never send trading passwords, account credentials or personal information. Use a long random topic and, for stronger security, a protected ntfy deployment/account with authentication (not implemented in this version).
-- This is a receiver only. It does not parse trade instructions, connect to a broker or place orders. It displays the EA message verbatim and does not prove the sender's identity.
-- Uses a user-started special-use foreground service and a persistent notification for background streaming. A Play Store release would require foreground-service declaration/review and any other applicable store requirements; approval is not implied.
-- No Firebase, no wake lock, no boot auto-start, and no automatic exemption from battery optimization. Android Doze, manufacturer battery controls, force-stop, reboot, revoked notification permission, outages, network restrictions and ntfy retention/rate limits can delay or prevent alerts. Start again after reboot/force-stop. It is not a guaranteed real-time trading system.
-- First start listens from the current time; later reconnects use the last received message ID and ntfy's available cached history. Expired server history cannot be recovered. A process crash at notification/history persistence boundaries can cause a duplicate; exactly-once delivery is not promised.
-- Alerts use a high-importance channel with sound/vibration controlled by Android notification settings and Do Not Disturb. ntfy priority, attachments, action buttons and authentication are not implemented.
-- Inbox stays on the phone, Android backup is disabled, and alerts hide detailed content on the lock screen unless device settings override it.
-
-## Validation status
-Authoring checks: XML parsing, required source files/configuration, archive integrity. NOT verified: Java compilation, Gradle dependency resolution, APK signing/install, foreground-service behavior, ntfy live connection, or device notifications. Complete the end-to-end checks above before relying on this app.
+## Device acceptance checklist
+- Build succeeds and all reducer tests pass.
+- Fresh install: no fake symbols or performance metrics.
+- Allow notifications; Start Live changes from Connecting to Connected against your server.
+- Publish actual EA watch/standby messages: Terminal updates, reason/timeframe visible.
+- Transition a symbol watch → standby → remove; send an empty snapshot to clear list.
+- Plain message triggers phone notification and appears in Signal. Structured state/summary/heartbeat traffic is silent.
+- Today's summary appears from a valid JSON summary; absent fields show —. Previous dates do not appear as today's performance.
+- Disconnect network: status retries, terminal timestamps remain visible and eventually stale. Reconnect resumes available retained messages.
+- Stop/reopen, change endpoint/topic, change image, rotate screen and test Android notification/battery restrictions.
