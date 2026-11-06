@@ -9,6 +9,11 @@ import android.webkit.*;
 import android.widget.Toast;
 import org.json.*;
 import java.net.URI;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 /** Trusted bundled UI; all ntfy networking remains in the native foreground service. */
 public class MainActivity extends Activity {
@@ -49,7 +54,10 @@ public class MainActivity extends Activity {
                 out.put("dark",Store.prefs(MainActivity.this).getBoolean("dark",true));
                 out.put("stale",Store.prefs(MainActivity.this).getInt("stale",300));
                 out.put("server",Store.server(MainActivity.this));out.put("topic",Store.topic(MainActivity.this));
-                out.put("token",Store.token(MainActivity.this));return out.toString();
+                out.put("token",Store.token(MainActivity.this));
+                android.content.SharedPreferences p=Store.prefs(MainActivity.this);
+                out.put("commandTopic",p.getString("commandTopic",""));out.put("commandToken",p.getString("commandToken",""));out.put("commandConfirmed",p.getBoolean("commandConfirmed",false));
+                out.put("commandState",p.getString("commandState",""));out.put("commandTime",p.getLong("commandTime",0));out.put("commandId",p.getString("commandId",""));return out.toString();
             } catch(JSONException e){return "{\"error\":\"Could not read saved app data\"}";}
         }
         @JavascriptInterface public boolean theme(boolean dark) {
@@ -57,17 +65,50 @@ public class MainActivity extends Activity {
             if(ok)runOnUiThread(()->bars(dark));return ok;
         }
         @JavascriptInterface public void toggleLive() { runOnUiThread(()->toggleReceiver()); }
+        @JavascriptInterface public String sendBotCommand(String command) {
+            String action=command==null?"":command.trim().toUpperCase(java.util.Locale.ROOT);
+            if(!action.equals("RUN")&&!action.equals("STOP"))return commandResult(false,"Only explicit RUN or STOP commands are allowed.",null);
+            android.content.SharedPreferences p=Store.prefs(MainActivity.this);
+            String commandTopic=p.getString("commandTopic","").trim(),commandToken=p.getString("commandToken","").trim();
+            if(commandTopic.isEmpty()||!commandTopic.matches("[A-Za-z0-9_-]{1,128}"))return commandResult(false,"Configure a valid, separate EA command topic first.",null);
+            if(commandTopic.equals(Store.topic(MainActivity.this)))return commandResult(false,"The EA command topic must differ from the alert topic.",null);
+            if(commandToken.isEmpty())return commandResult(false,"A command access token is required.",null);
+            if(!p.getBoolean("commandConfirmed",false))return commandResult(false,"Confirm that the command topic is access-controlled before sending.",null);
+            String id=UUID.randomUUID().toString();long sequence=p.getLong("commandSequence",0L)+1L;long now=System.currentTimeMillis()/1000L;
+            try {
+                JSONObject body=new JSONObject();body.put("type","bot_command");body.put("action",action);body.put("command_id",id);body.put("sequence",sequence);body.put("requested_at",now);
+                byte[] bytes=body.toString().getBytes(StandardCharsets.UTF_8);
+                URL url=new URL(Store.server(MainActivity.this)+"/"+commandTopic);HttpURLConnection c=(HttpURLConnection)url.openConnection();
+                try {
+                    c.setRequestMethod("POST");c.setConnectTimeout(7000);c.setReadTimeout(7000);c.setInstanceFollowRedirects(false);
+                    c.setRequestProperty("Content-Type","text/plain; charset=utf-8");c.setRequestProperty("Title","OrionBeastFx EA control");c.setRequestProperty("Authorization","Bearer "+commandToken);
+                    c.setDoOutput(true);c.setFixedLengthStreamingMode(bytes.length);try(OutputStream os=c.getOutputStream()){os.write(bytes);}
+                    int status=c.getResponseCode();if(status<200||status>=300)return commandResult(false,"ntfy rejected the command (HTTP "+status+"). Check the server and command token.",null);
+                } finally { c.disconnect(); }
+                boolean saved=p.edit().putLong("commandSequence",sequence).putString("commandState",action+"_REQUESTED").putLong("commandTime",now).putString("commandId",id).commit();
+                return commandResult(true,saved?"ntfy accepted the request; this does not confirm EA execution.":"ntfy accepted the request, but the app could not save its local status.",id);
+            } catch(Exception ex) { return commandResult(false,"Could not reach the command server. No EA execution is confirmed.",null); }
+        }
+        private String commandResult(boolean ok,String message,String id) {
+            JSONObject result=new JSONObject();try{result.put("ok",ok);result.put(ok?"message":"error",message);if(id!=null)result.put("commandId",id);return result.toString();}catch(JSONException e){return "{\"ok\":false,\"error\":\"Command result unavailable\"}";}
+        }
         @JavascriptInterface public String saveSettings(String payload) {
             if(AlertService.active)return "Stop LIVE before changing the connection.";
             try {
                 JSONObject p=new JSONObject(payload);String s=p.getString("server").trim().replaceAll("/+$","");
                 String t=p.getString("topic").trim(),token=p.optString("token").trim();int stale=p.getInt("stale");
+                String commandTopic=p.optString("commandTopic","").trim(),commandToken=p.optString("commandToken","").trim();boolean commandConfirmed=p.optBoolean("commandConfirmed",false);
                 URI u=new URI(s);
                 if(!"https".equals(u.getScheme())||u.getHost()==null||u.getUserInfo()!=null||u.getQuery()!=null||u.getFragment()!=null) return "Enter a valid HTTPS server URL.";
                 if(!t.matches("[A-Za-z0-9_-]{1,128}"))return "Topic must contain 1–128 letters, numbers, underscores or hyphens.";
-                if(token.contains("\n")||token.contains("\r"))return "Invalid access token.";
+                if(token.contains("\n")||token.contains("\r")||commandToken.contains("\n")||commandToken.contains("\r"))return "Invalid access token.";
+                if(!commandTopic.isEmpty()&&!commandTopic.matches("[A-Za-z0-9_-]{1,128}"))return "Command topic must contain 1–128 letters, numbers, underscores or hyphens.";
+                if(!commandTopic.isEmpty()&&commandTopic.equals(t))return "Use a separate command topic, not the alert topic.";
+                if(!commandTopic.isEmpty()&&commandToken.isEmpty())return "Enter a command token before enabling EA controls.";
+                if(!commandTopic.isEmpty()&&!commandConfirmed)return "Confirm that the command topic is access-controlled.";
+                if(commandTopic.isEmpty()){commandToken="";commandConfirmed=false;}
                 if(stale<30||stale>86400)return "Stale threshold must be 30–86400 seconds.";
-                boolean ok=Store.prefs(MainActivity.this).edit().putString("server",s).putString("topic",t).putString("token",token).putInt("stale",stale).commit();
+                boolean ok=Store.prefs(MainActivity.this).edit().putString("server",s).putString("topic",t).putString("token",token).putInt("stale",stale).putString("commandTopic",commandTopic).putString("commandToken",commandToken).putBoolean("commandConfirmed",commandConfirmed).commit();
                 return ok?"":"Could not save settings to this device.";
             }catch(Exception e){return "Check the server, topic and stale threshold.";}
         }

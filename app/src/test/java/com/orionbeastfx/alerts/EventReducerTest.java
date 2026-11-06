@@ -30,4 +30,16 @@ public class EventReducerTest {
     @Test(expected=JSONException.class) public void impossibleRateRejected() throws Exception {
         EventReducer.apply(new JSONObject(),new JSONObject("{\"type\":\"summary\",\"date\":\"2026-11-06\",\"win_rate\":101}"),1);
     }
+
+    @Test public void dynamicTakeProfitIsPreservedAsReported() throws Exception {
+        JSONObject s=EventReducer.apply(new JSONObject(),new JSONObject("{\"type\":\"symbol\",\"symbol\":\"TEST\",\"state\":\"watch\",\"tp\":\"1.234567\",\"tp_method\":\"EA calculation\"}"),10);
+        JSONObject r=s.getJSONObject("symbols").getJSONObject("TEST");assertEquals("1.234567",r.getString("tp"));assertEquals("EA calculation",r.getString("tp_method"));
+    }
+    @Test(expected=JSONException.class) public void invalidTakeProfitRejected() throws Exception {
+        EventReducer.apply(new JSONObject(),new JSONObject("{\"type\":\"symbol\",\"symbol\":\"TEST\",\"state\":\"watch\",\"tp\":-1}"),10);
+    }
+    @Test public void botStatusAcknowledgementIsStored() throws Exception {
+        JSONObject s=EventReducer.apply(new JSONObject(),new JSONObject("{\"type\":\"bot_status\",\"status\":\"running\",\"command_id\":\"cmd-1\"}"),10);
+        assertEquals("running",s.getJSONObject("bot_status").getString("status"));assertEquals("cmd-1",s.getJSONObject("bot_status").getString("command_id"));
+    }
 }

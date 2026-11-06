@@ -1,42 +1,44 @@
-# EA → ntfy → OrionBeastFx
+# OrionBeastFx — EA/ntfy integration (v5)
 
-The receiver cannot discover your EA's market watch internally. Publish actual EA states to the configured topic. No EA source was provided; this document specifies the new receiver's contract, not your EA's current output.
+The Android app receives EA events and can publish explicit Run/Stop requests. The EA source was not supplied or modified. The app alone cannot control MetaTrader, guarantee that the EA starts stopped, calculate a strategy-specific take-profit, or prove that a trade executed. Test all EA changes on a demo account first.
 
-## Transport
-POST to `https://ntfy.sh/OrionBeastFx` (or your configured server/topic).
-The HTTP request body is a UTF-8 string containing ONE JSON object below. Use `Content-Type: text/plain; charset=utf-8` so ntfy treats it as a message body, not as the root ntfy JSON publish API. Use an Authorization Bearer header if the server requires a token. MT4/MT5 may require adding your server to allowed WebRequest URLs.
+## Alert and status events (EA → app)
+POST UTF-8 JSON as a text/plain body to the configured alert topic, for example `https://ntfy.sh/<alert-topic>`. The app accepts the existing `symbol`, `snapshot`, `summary`, and `heartbeat` events. Structured events are not trading recommendations.
 
-**The following symbols/numbers are documentation/test examples only. They are never preloaded into the app. Substitute your real EA values.**
+### Dynamic TP display
+For a symbol update, the EA may include its **current calculated target price** as `tp`, plus a short `tp_method` description. The app validates that `tp` is a positive finite price and displays the value and method exactly as reported. Each new symbol update replaces the prior row, so the EA should publish a fresh value whenever its calculation changes.
 
-### Single-symbol update
+The app does not derive TP from a fixed number, pip distance, ATR, or risk/reward ratio. The calculation formula and inputs must be implemented in the EA and must match your strategy. No TP price is supplied or invented by this project.
+
+Example schema only (placeholders, not trade advice):
 ```json
-{"type":"symbol","symbol":"EURUSD","state":"watch","timeframe":"M15","reason":"EA setup criteria met"}
+{"type":"symbol","symbol":"<broker-symbol>","state":"watch","timeframe":"<timeframe>","tp":"<EA-calculated-price>","tp_method":"<actual method>"}
 ```
-Change `state` to `standby` when the EA is waiting. `watch` and `standby` have the meaning assigned by YOUR EA; the receiver does not decide entry conditions. `remove` removes the row from visible groups. `timeframe` and `reason` are optional strings. Exact broker symbol names, including suffixes, are preserved.
 
-### Complete authoritative snapshot
+### EA status acknowledgement
+After processing a command, publish a status event to the **alert** topic so the app can display the EA-reported state:
 ```json
-{"type":"snapshot","symbols":[{"symbol":"EURUSD","state":"watch","timeframe":"M15"},{"symbol":"XAUUSD","state":"standby","reason":"Waiting for setup"}]}
+{"type":"bot_status","status":"running","command_id":"<received-command-id>"}
 ```
-A snapshot replaces all previous symbols (except newer individual messages during replay). Send `{"type":"snapshot","symbols":[]}` if no symbols are monitored. Publish snapshots periodically, for example after state changes, and on EA startup. Subscribe/start the app before sending its initial snapshot. The app does not send commands back to your EA.
+Use `stopped` when the EA has disabled new entries. This is an EA report over ntfy, not an independently verified broker status.
 
-### Daily performance summary
+## Manual control (app → EA)
+In app Settings, configure a **separate command topic**, a command token, and confirm that the topic has server-side access restrictions. The app keeps Run/Stop locked until these fields are set. Public ntfy topics are readable/publishable by others; a token typed into the app does not itself make a public topic private. Verify the server’s ACLs and use a protected/self-hosted ntfy setup for any command capable of affecting live trades.
+
+Only a tap on the floating Run or Stop button publishes a command. The request body is a JSON text message to the command topic:
 ```json
-{"type":"summary","date":"2026-11-06","trades":12,"win_rate":67,"net_r":13.95}
+{"type":"bot_command","action":"RUN","command_id":"<unique-id>","sequence":1,"requested_at":<unix-seconds>}
 ```
-Use the actual date matching the phone's local calendar day. `win_rate` is a percentage from 0 to 100, NOT a fraction. `trades` must be a nonnegative integer. `net_r` is a finite signed value in R units. These numeric fields are optional: missing values display —, not zero. Summary events replace that date's full summary, not increment it. Your EA calculates results and decides counting policy; the receiver does not manufacture them from signals. Dates use YYYY-MM-DD.
+`action` is `RUN` or `STOP`; the app sends an Authorization Bearer header using the configured command token. The `sequence` increases on the device. The ntfy HTTP success response means only that ntfy accepted the publish request.
 
-### Heartbeat
-```json
-{"type":"heartbeat"}
-```
-Updates the last structured EA message time. It does NOT refresh per-symbol timestamps. Send fresh symbol updates/snapshots for that.
+The EA must implement the command listener and its own safety logic. Recommended requirements:
+- Initialize the EA with new entries disabled. Do not auto-trade on EA load, app launch, receiver reconnect, or topic reconnect.
+- Accept only valid, new commands from the protected topic; check command IDs/sequences and reject stale/replayed or malformed requests.
+- RUN may enable new-entry logic only after the EA validates its own risk and market conditions. STOP disables new entries. **STOP does not close existing positions**; keep their normal stop-loss/TP management. Do not close positions unless you explicitly add and test a separate close-all command.
+- Publish `bot_status` to the alert topic after applying the command. Include the same `command_id`, and make status reflect the EA’s actual internal enable/disable state.
+- Independently enforce lot-size, exposure, spread, margin, stop-loss, and daily-loss limits inside the EA. The phone UI is not a risk engine.
 
-### Regular phone alert
-POST a plain message such as your EA's normal signal text. It appears in Signal and triggers Android notifications. Structured symbol/snapshot/summary/heartbeat traffic is kept in History silently to avoid notification floods. Invalid structured messages are kept with an error and do not change terminal state. Unknown JSON event types are rejected, not guessed.
+The app does not subscribe to the command topic and cannot know if the EA is listening. It reports the last EA status event and the last request sent; absence of an acknowledgement means status is unknown.
 
-## Ordering and limitations
-The receiver uses the ntfy outer message `time` (server seconds) for ordering, not client-supplied timestamps. Older updates do not overwrite newer rows; same-second events are applied in received order. Repeated recent message IDs are ignored (300-message deduplication window). Last saved ID is used for reconnect; retention gaps require a fresh snapshot. A crash around persistence/notification may drop a notification; exactly-once delivery is not guaranteed. Each symbol has one aggregate state per topic, not a separate row per timeframe/EA. Histories and summaries are local device data and no metrics are independently audited.
-
-## Safe testing
-Use a PRIVATE temporary test topic to publish example data; do not put sample trades into your live topic. Change Settings to that topic first. No test script auto-publishes anything.
+## Existing alerts
+The existing signal/summary formats remain in the source. Use real EA values only. Keep alert and command topics separate. Do not publish broker credentials or sensitive account information in ntfy messages.

@@ -37,6 +37,13 @@ final class EventReducer {
             if(e.has("win_rate")) { double n=e.getDouble("win_rate"); if(!Double.isFinite(n)||n<0||n>100) throw new JSONException("win_rate must be 0..100"); s.put("win_rate",n); }
             if(e.has("net_r")) { double n=e.getDouble("net_r"); if(!Double.isFinite(n)) throw new JSONException("invalid net_r"); s.put("net_r",n); }
             summaries.put(date,s); out.put("summaries",summaries);
+        } else if ("bot_status".equals(type)) {
+            String status=e.getString("status").toLowerCase(java.util.Locale.ROOT);
+            if(!status.equals("running")&&!status.equals("stopped")) throw new JSONException("bot_status must be running or stopped");
+            if(time<out.optLong("bot_status_time",0)) return out;
+            JSONObject bot=new JSONObject();bot.put("status",status);bot.put("time",time);
+            if(e.has("command_id")){String id=e.getString("command_id").trim();if(id.length()>100)throw new JSONException("invalid command_id");bot.put("command_id",id);}
+            out.put("bot_status",bot);out.put("bot_status_time",time);
         } else if (!"heartbeat".equals(type)) throw new JSONException("Unknown structured event type");
         out.put("last_ea",Math.max(time,out.optLong("last_ea",0)));
         return out;
@@ -51,6 +58,13 @@ final class EventReducer {
         // Keep remove tombstones to prevent old replayed messages resurrecting a symbol.
         JSONObject row=new JSONObject(); row.put("symbol",name);row.put("state",state);row.put("time",time);
         row.put("reason",e.optString("reason",""));row.put("timeframe",e.optString("timeframe",""));
+        if(e.has("tp")){
+            Object raw=e.get("tp");if(!(raw instanceof Number)&&!(raw instanceof String))throw new JSONException("tp must be a positive price");
+            String tp=String.valueOf(raw).trim();if(tp.isEmpty()||tp.length()>40)throw new JSONException("invalid tp");
+            double price;try{price=Double.parseDouble(tp);}catch(Exception ex){throw new JSONException("tp must be a positive price");}
+            if(!Double.isFinite(price)||price<=0)throw new JSONException("tp must be a positive finite price");row.put("tp",tp);
+            String method=e.optString("tp_method","").trim();if(method.length()>80)throw new JSONException("tp_method is too long");if(!method.isEmpty())row.put("tp_method",method);
+        }
         symbols.put(name,row);
     }
 }
