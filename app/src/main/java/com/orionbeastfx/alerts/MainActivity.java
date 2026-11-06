@@ -18,6 +18,8 @@ import java.util.UUID;
 /** Trusted bundled UI; all ntfy networking remains in the native foreground service. */
 public class MainActivity extends Activity {
     private WebView web;
+    private final java.util.concurrent.ExecutorService commands=java.util.concurrent.Executors.newSingleThreadExecutor();
+    private volatile boolean activityDestroyed=false;
     private void bars(boolean dark) {
         getWindow().setStatusBarColor(Color.parseColor(dark?"#121212":"#F7F4ED"));
         getWindow().setNavigationBarColor(Color.parseColor(dark?"#121212":"#F7F4ED"));
@@ -65,6 +67,19 @@ public class MainActivity extends Activity {
             if(ok)runOnUiThread(()->bars(dark));return ok;
         }
         @JavascriptInterface public void toggleLive() { runOnUiThread(()->toggleReceiver()); }
+        @JavascriptInterface public void sendBotCommandAsync(final String command) {
+            if(activityDestroyed)return;
+            try {
+                commands.execute(() -> {
+                    final String result=sendBotCommand(command);
+                    runOnUiThread(() -> {
+                        if(!activityDestroyed&&web!=null)web.evaluateJavascript("window.onBotCommandResult && window.onBotCommandResult("+result+")",null);
+                    });
+                });
+            }catch(java.util.concurrent.RejectedExecutionException ignored){
+                android.util.Log.w("OrionControl","Activity closed before command could be queued");
+            }
+        }
         @JavascriptInterface public synchronized String sendBotCommand(String command) {
             String action=command==null?"":command.trim().toUpperCase(java.util.Locale.ROOT);
             if(!action.equals("RUN")&&!action.equals("STOP"))return commandResult(false,"Only explicit RUN or STOP commands are allowed.",null);
@@ -135,5 +150,5 @@ public class MainActivity extends Activity {
         else Toast.makeText(this,"Notification permission is required to receive alerts.",Toast.LENGTH_LONG).show();}
     }
     @Override public void onBackPressed(){if(web!=null)web.evaluateJavascript("window.goHome && window.goHome()",null);else super.onBackPressed();}
-    @Override protected void onDestroy(){if(web!=null){web.removeJavascriptInterface("Orion");web.destroy();}super.onDestroy();}
+    @Override protected void onDestroy(){activityDestroyed=true;commands.shutdown();if(web!=null){web.removeJavascriptInterface("Orion");web.destroy();}super.onDestroy();}
 }

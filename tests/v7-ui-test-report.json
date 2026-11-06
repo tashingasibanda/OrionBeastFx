@@ -1,0 +1,41 @@
+{
+  "passed": [
+    "Entire bundled app JavaScript parses",
+    "Actual button/card handlers pass 16 scenarios",
+    "Home and Trader each have explicit wired RUN/STOP buttons",
+    "WebView command path is async and native queue is off-thread",
+    "Native callback refuses destroyed WebView",
+    "No custom include required in standalone EA",
+    "Both strategy modules emit real structured signal events",
+    "Signal reducer validates side, prices and lifetime",
+    "Signal card text is created with textContent",
+    "No per-card trade button falsely targets an ID",
+    "Preserved strategy section double Median(",
+    "Preserved strategy section double Percentile(",
+    "Preserved strategy section double MadScale(",
+    "Preserved strategy section void Check(",
+    "Preserved strategy section void UpdateSpikeBar(",
+    "Preserved strategy section bool TickAccel(",
+    "Preserved strategy section void SpikeLevels(",
+    "Preserved strategy section void SpikeCheck(",
+    "Standalone MQL lexical brackets balanced",
+    "Modified Java sources lexical brackets balanced",
+    "Existing trade/STOP and persistent ordering safeguards retained"
+  ],
+  "actual_ui_test": {
+    "button_and_card_scenarios": 16,
+    "async_actions": [
+      "RUN",
+      "STOP",
+      "LIVE"
+    ],
+    "success": true
+  },
+  "unchanged_strategy_sections": 8,
+  "limits": [
+    "No JDK/Android SDK/Gradle: APK not compiled.",
+    "No MetaEditor compiler: MQ5 source not compiled.",
+    "No real ntfy, Android device, MT5 terminal or broker execution test."
+  ],
+  "standalone_ea_sha256": "282bdeafc7355e3174c88a7ca178a5863ca322c7aa8171f174f1aa04dfe4737f"
+}

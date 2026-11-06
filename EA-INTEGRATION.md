@@ -1,4 +1,4 @@
-# OrionBeastFx v6: Android ↔ MT5 connection repair
+# OrionBeastFx v7: working controls and signal cards
 
 ## What was wrong
 Android v5 publishes authenticated JSON bot_command messages with action RUN/STOP. The old EA accepts only plaintext RUN prefixes, reads without authentication, lacks STOP and publishes no bot_status acknowledgement. A successful HTTP publish was not proof of an order.
@@ -20,8 +20,8 @@ An unpredictable topic name, an app checkbox or a token alone does NOT make a pu
 
 ## 2. Install/compile in MT5 on Windows PC or VPS
 1. Open MT5 → File → Open Data Folder → MQL5 → Experts. Create an OrionBeastFx folder.
-2. Copy BOTH files from this ZIP's mt5/ folder into it: OrionBeastFx_Signals.mq5 and OrionAppControl.mqh. Keep them together.
-3. Open the .mq5 in MetaEditor and compile. The .mqh is an include, not a separately attachable EA.
+2. Copy mt5/OrionBeastFx_Signals.mq5 into that folder. It is standalone: custom control code is bundled inline. The archived .mqh is supplied for reference only.
+3. Open the .mq5 in MetaEditor and compile. MT5’s standard Trade/Trade.mqh is still required (normally installed with MT5).
 4. MT5 → Tools → Options → Expert Advisors → enable Allow WebRequest for the exact HTTPS ntfy server origin you use.
 5. Attach the EA to ONE chart, not one chart per symbol. It scans the configured symbols itself.
 6. Set inputs:
@@ -71,3 +71,10 @@ In the installed app's Settings, set server, alert Topic and alert-read Token. S
 
 ## Verification status
 The supplied source was mechanically integrated, strategy-math sections checked unchanged, and archive integrity checked. A test report in the ZIP records the host-side checks actually performed. No MetaEditor, Android SDK/JDK/Gradle, broker terminal or private ntfy credentials were available in the execution environment. Neither .ex5 nor .apk is supplied or claimed tested. Compile both projects, run the demo checklist and send any real compiler diagnostics back for correction.
+
+## v7 buttons and cards
+RUN and STOP are directly visible on Home and Trader. They unlock only after command settings are valid. Publishing runs on a native background queue; the UI shows sending, publish outcome, then the matching EA acknowledgement. No command is sent merely by opening the app. LIVE is still an independent receiver toggle. If the receiver is off the app warns you; it does not pretend to know that the EA acted.
+
+Trader shows cards for real trend/spike signals with BUY/SELL, symbol/timeframe, entry/SL/TP, timestamp and signal ID. EXPIRED is based on the signal's advertised lifetime, not proof of broker execution or whether a pending signal was consumed. There is intentionally no misleading per-card trade button: default RUN still attempts the EA's latest pending signal, not an arbitrarily selected card. Original alert details are retained inside each card. Structured status/heartbeat/order reports are not rendered as signal cards; History retains raw received messages.
+
+The separate downloadable OrionBeastFx_Signals_v7.mq5 has exactly the same bytes as mt5/OrionBeastFx_Signals.mq5 inside this ZIP. You do not need an extra custom .mqh to use it. Rebuild/install the matching v7 app; older APKs do not have the async bridge or card reducer.

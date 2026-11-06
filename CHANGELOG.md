@@ -1,3 +1,10 @@
+# v7 UI correction
+- Added directly accessible Home/Trader RUN and STOP buttons.
+- Added async native publishing with visible progress/error handling.
+- Added validated structured signal events and real signal cards; legacy alerts remain readable.
+- Exported standalone .mq5 source separately as requested.
+- No APK/EX5 compile or real ntfy/broker test performed here.
+
 # v6 connection repair
 - Matched Android JSON protocol to MT5; authenticated command reads and status writes.
 - Explicit STOP, startup-stopped gate, UTC TTL, durable duplicate-command suppression.

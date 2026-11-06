@@ -37,6 +37,30 @@ final class EventReducer {
             if(e.has("win_rate")) { double n=e.getDouble("win_rate"); if(!Double.isFinite(n)||n<0||n>100) throw new JSONException("win_rate must be 0..100"); s.put("win_rate",n); }
             if(e.has("net_r")) { double n=e.getDouble("net_r"); if(!Double.isFinite(n)) throw new JSONException("invalid net_r"); s.put("net_r",n); }
             summaries.put(date,s); out.put("summaries",summaries);
+
+        } else if ("signal".equals(type)) {
+            String side=e.getString("side");if(!side.equals("BUY")&&!side.equals("SELL"))throw new JSONException("invalid signal side");
+            String symbol=e.getString("symbol").trim();if(symbol.isEmpty()||symbol.length()>80)throw new JSONException("invalid signal symbol");
+            JSONObject signal=new JSONObject(e.toString());
+            for(String key:new String[]{"entry","sl","tp"}){
+                Object raw=e.get(key);if(!(raw instanceof Number)&&!(raw instanceof String))throw new JSONException("invalid signal price");
+                String value=String.valueOf(raw).trim();double price;
+                try{price=Double.parseDouble(value);}catch(Exception ex){throw new JSONException("invalid signal price");}
+                if(value.isEmpty()||value.length()>40||!Double.isFinite(price)||price<=0)throw new JSONException("invalid signal price");
+                signal.put(key,value);
+            }
+            double created=e.getDouble("created_at"),valid=e.getDouble("valid_for_seconds");
+            if(!Double.isFinite(created)||created<=0||created!=Math.floor(created)||!Double.isFinite(valid)||valid<1||valid>86400||valid!=Math.floor(valid))throw new JSONException("invalid signal lifetime");
+            if(e.optString("description","").length()>10000)throw new JSONException("signal description too long");
+            signal.put("symbol",symbol);signal.put("received_at",time);
+            JSONArray history=out.optJSONArray("signals");if(history==null)history=new JSONArray();
+            JSONArray next=new JSONArray();next.put(signal);
+            String key=signal.optString("signal_id")+"|"+symbol+"|"+signal.getLong("created_at");
+            for(int i=0;i<history.length()&&next.length()<100;i++){
+                JSONObject old=history.getJSONObject(i);String oldKey=old.optString("signal_id")+"|"+old.optString("symbol")+"|"+old.optLong("created_at");
+                if(!oldKey.equals(key))next.put(old);
+            }
+            out.put("signals",next);
         } else if ("bot_status".equals(type)) {
             String status=e.getString("status").toLowerCase(java.util.Locale.ROOT);
             if(!status.equals("running")&&!status.equals("stopped")) throw new JSONException("bot_status must be running or stopped");
