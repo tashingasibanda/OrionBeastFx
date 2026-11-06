@@ -1,4 +1,4 @@
-# EA → ntfy → Star Beast FX
+# EA → ntfy → OrionBeastFx
 
 The receiver cannot discover your EA's market watch internally. Publish actual EA states to the configured topic. No EA source was provided; this document specifies the new receiver's contract, not your EA's current output.
 

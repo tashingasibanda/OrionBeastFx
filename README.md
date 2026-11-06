@@ -1,47 +1,34 @@
-# Star Beast FX Android receiver — ivory edition v2
+# OrionBeastFx Android v3
 
-Native Android source project, updated from the Orion Beast FX project. This ZIP is NOT an APK.
+An Android ntfy trading-alert receiver with an offline bundled SVG interface.
+Defaults: server https://ntfy.sh, topic OrionBeastFx. Both remain editable.
 
-## Build an installable APK
-1. Extract this ZIP. Upload the CONTENTS of the `OrionBeastFx` folder to your GitHub repository root, including `.github`.
-2. Open Actions → Build Star Beast FX APK → Run workflow.
-3. The workflow runs reducer unit tests, then builds a debug APK. Download `StarBeastFx-debug-APK`, extract it and install `app-debug.apk`.
-4. Allow notifications. Open Settings to set server/topic/token, then Start receiver. Android may ask permission to install unknown apps from your download app.
+## Build the APK
+1. Extract this ZIP. Upload the CONTENTS of OrionBeastFx/ to a GitHub repository root (including .github/).
+2. Open Actions > Build OrionBeastFx APK > Run workflow.
+3. After a successful run download OrionBeastFx-debug-APK, extract it, and install app-debug.apk on Android 8+.
+4. Allow notifications and select START LIVE. Keep battery restrictions in mind.
 
-Requires JDK 17, Gradle 8.9, Android SDK 35. Local command: `gradle :app:testDebugUnitTest :app:assembleDebug`.
-Debug builds use a development signing key. A later build may not update an existing install if signed with a different key; use a stable release signing key for upgrades. Uninstalling deletes local data.
+The debug APK is for testing. Use your own release keystore for production. To update an already installed build, retain the same signing key; GitHub fresh runners may generate different debug keys, requiring an uninstall (which removes saved data) before installation. Back up needed data before uninstalling. No APK is bundled here: Android compilation and on-device delivery have not been verified in this environment.
 
-## What changed
-- Ivory/gold native interface inspired by your image: lion, chart artwork, Home / Signal / Terminal / Settings and Change Image.
-- Terminal is NOT a command console. It groups EA-reported symbols into On Watch and On Standby, with timeframe, reason, last update and stale indicator.
-- No sample symbols, trades, win rate or P/L in the running app. Empty data stays empty/—. Summary numbers require a valid EA summary for today's PHONE-local date. P/L is R units only; currency is not mixed into R.
-- Configurable HTTPS ntfy server, topic and optional Bearer token. The supplied defaults are https://ntfy.sh and OrionBeastFx, not locked settings.
-- Start Live uses ntfy's persistent HTTP JSON stream, NOT a WebSocket. The label intentionally says Live rather than WS.
-- History includes all received messages; Signal shows plain alerts and rejected structured messages. Up to 300 messages per configured server/topic. Terminal state and day summaries persist separately.
-- AI Insight is explicitly unconfigured; it does NOT fabricate model output or give fake trading advice.
+Local build with JDK 17, Android SDK platform/build-tools 35 and Gradle 8.9:
+    gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
 
-## Important: EA integration is required
-Read EA-INTEGRATION.md. Existing plain text notifications continue to work, but watch/standby cannot be inferred reliably from arbitrary prose. Your EA must send JSON in its ntfy message body. The EA source was not supplied and has NOT been modified.
+## v3 interface
+- Correct OrionBeastFx launcher title, header and receiver notification branding.
+- Fixed bundled chart/lion artwork. Image picker removed.
+- SVG icon navigation and toolbar. Navigation has 16 CSS pixel side/bottom gaps, 24px radius and a shadow inside the app safe area.
+- Green STOP LIVE when receiver runs; red START LIVE when stopped. These control reception, never EA execution.
+- Dark Mode in Settings, persisted through native SharedPreferences across reloads/restarts. Dark background #121212, cards/bar #1E1E1E.
+- Real summary data only: trades, win_rate, net_r (shown in R units). Missing metrics are dashes.
+- Receiver connection is separate from last structured EA update and staleness.
+- Terminal groups actual symbol messages into Watch and Standby; no inferred or sample symbols.
+- History displays the latest 300 saved messages. Signal excludes successfully parsed state traffic.
+- AI Insight transparently reports that no AI provider is connected, and shows only received-data observations.
+- Settings retain editable HTTPS server, topic, access token and stale threshold (30-86400 seconds).
 
-## Delivery, safety and privacy
-- Public topics are not private or authenticated; anyone who knows the topic may read/publish. Use a protected ntfy server/account/topic and token for private data.
-- Tokens are saved in app-private SharedPreferences, not encrypted with Android Keystore. Android backup is disabled. Use device encryption/lock, do not use a rooted/shared device for sensitive tokens.
-- No broker connection, auto-trading, trade placement or promised profits.
-- Connected means ntfy stream connected, NOT proof your EA is alive. Terminal displays last received server timestamp; after 300 seconds by default it is marked stale. Change threshold in Settings. EA timestamps in the message are not used; ntfy envelope time is used.
-- User-started foreground service with ongoing notification. No boot auto-start, no wake lock and no guaranteed delivery under Doze, force-stop, reboot, battery optimization or network loss. Restart manually after reboot/force-stop. Play Store foreground-service review may be required.
-- First listen starts now; reconnect resumes from last saved ntfy ID within available server retention. Send snapshots regularly and after starting a new phone; no old state appears automatically without messages.
-- Same endpoint/topic state is restored; a different endpoint/topic has a separate cache. Stop receiver before changing connection. Multiple EAs publishing the same symbol share one symbol row: use separate topics or aggregate states upstream.
+## EA integration
+See EA-INTEGRATION.md. Existing message formats, reducer and foreground receiver are retained. EA source was not supplied and is not modified. The interface runs in a restricted local WebView; native Android service handles ntfy and phone notifications even when the UI is closed. OS force-stop, battery restrictions or network loss may interrupt reception.
 
-## Verification status
-Archive integrity, Android XML and static source/configuration checks were performed during authoring. Reducer JUnit tests are included and configured to run in CI, but were NOT executed here. No Java/Gradle/Android SDK was available here: compilation, APK installation, on-phone appearance, background execution and live ntfy delivery remain UNVERIFIED. Build and test on a device before relying on alerts.
-
-## Device acceptance checklist
-- Build succeeds and all reducer tests pass.
-- Fresh install: no fake symbols or performance metrics.
-- Allow notifications; Start Live changes from Connecting to Connected against your server.
-- Publish actual EA watch/standby messages: Terminal updates, reason/timeframe visible.
-- Transition a symbol watch → standby → remove; send an empty snapshot to clear list.
-- Plain message triggers phone notification and appears in Signal. Structured state/summary/heartbeat traffic is silent.
-- Today's summary appears from a valid JSON summary; absent fields show —. Previous dates do not appear as today's performance.
-- Disconnect network: status retries, terminal timestamps remain visible and eventually stale. Reconnect resumes available retained messages.
-- Stop/reopen, change endpoint/topic, change image, rotate screen and test Android notification/battery restrictions.
+## Security
+A public ntfy topic is readable/publishable by others; it is not an authenticated trading feed. Use a protected server/topic/token for private alerts. Tokens are stored in app-private preferences, not encrypted storage; Android backup is disabled. Untrusted EA message content is displayed as text, not HTML. No trading orders are sent.

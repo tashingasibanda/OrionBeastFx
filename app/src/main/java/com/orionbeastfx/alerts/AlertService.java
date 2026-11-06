@@ -23,7 +23,7 @@ public class AlertService extends Service {
     private PendingIntent open(){return PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
     private Notification live(String message){
         PendingIntent stop=PendingIntent.getService(this,1,new Intent(this,AlertService.class).setAction("STOP"),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-        return new Notification.Builder(this,LIVE).setSmallIcon(R.drawable.ic_orion).setContentTitle("Star Beast FX receiver").setContentText(message).setContentIntent(open()).setOngoing(true).addAction(new Notification.Action.Builder(null,"Stop",stop).build()).build();
+        return new Notification.Builder(this,LIVE).setSmallIcon(R.drawable.ic_orion).setContentTitle("OrionBeastFx receiver").setContentText(message).setContentIntent(open()).setOngoing(true).addAction(new Notification.Action.Builder(null,"Stop",stop).build()).build();
     }
     public int onStartCommand(Intent intent,int flags,int id){
         if(intent!=null&&"STOP".equals(intent.getAction())){stopSelf();return START_NOT_STICKY;}
@@ -67,7 +67,7 @@ public class AlertService extends Service {
         // Structured state/summary traffic is silent; ordinary signal messages notify.
         try{String type=new JSONObject(m.optString("message")).optString("type");if(type.equals("symbol")||type.equals("snapshot")||type.equals("summary")||type.equals("heartbeat"))return;}catch(JSONException ignored){}
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)return;
-        Notification n=new Notification.Builder(this,ALERTS).setSmallIcon(R.drawable.ic_orion).setContentTitle(m.optString("title","Star Beast FX · EA alert")).setContentText(m.optString("message")).setStyle(new Notification.BigTextStyle().bigText(m.optString("message"))).setContentIntent(open()).setAutoCancel(true).setVisibility(Notification.VISIBILITY_PRIVATE).build();
+        Notification n=new Notification.Builder(this,ALERTS).setSmallIcon(R.drawable.ic_orion).setContentTitle(m.optString("title","OrionBeastFx · EA alert")).setContentText(m.optString("message")).setStyle(new Notification.BigTextStyle().bigText(m.optString("message"))).setContentIntent(open()).setAutoCancel(true).setVisibility(Notification.VISIBILITY_PRIVATE).build();
         notifications.notify(m.optString("id"),2,n);
     }
     public void onDestroy(){running=false;active=false;if(worker!=null)worker.interrupt();HttpURLConnection c=connection;if(c!=null)c.disconnect();Store.status(this,"Offline");stopForeground(STOP_FOREGROUND_REMOVE);super.onDestroy();}
