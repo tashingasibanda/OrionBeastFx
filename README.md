@@ -1,4 +1,4 @@
-# OrionBeastFx v7 - buttons and signal cards
+# OrionBeastFx v8 - buttons and signal cards
 
 - Visible RUN/STOP controls on Home and Trader, separate from LIVE receiver.
 - Async native command publishing: no HTTP call on the WebView JavaScript path.

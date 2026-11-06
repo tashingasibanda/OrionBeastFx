@@ -1,3 +1,9 @@
+# v8 UI and connection diagnosis correction
+- Removed duplicate RUN/STOP panels from Home and Trader. Controls exist only inside the floating bot icon panel.
+- Added phone-to-ntfy status, configured topics, LIVE toggle and troubleshooting guidance to the floating panel.
+- Retained validated signal cards in Trader and async native RUN/STOP publishing.
+- No APK/EX5 compile or end-to-end server/broker test performed here.
+
 # v7 UI correction
 - Added directly accessible Home/Trader RUN and STOP buttons.
 - Added async native publishing with visible progress/error handling.

@@ -1,4 +1,4 @@
-# OrionBeastFx v7: working controls and signal cards
+# OrionBeastFx v8: floating EA controls and signal cards
 
 ## What was wrong
 Android v5 publishes authenticated JSON bot_command messages with action RUN/STOP. The old EA accepts only plaintext RUN prefixes, reads without authentication, lacks STOP and publishes no bot_status acknowledgement. A successful HTTP publish was not proof of an order.
@@ -78,3 +78,7 @@ RUN and STOP are directly visible on Home and Trader. They unlock only after com
 Trader shows cards for real trend/spike signals with BUY/SELL, symbol/timeframe, entry/SL/TP, timestamp and signal ID. EXPIRED is based on the signal's advertised lifetime, not proof of broker execution or whether a pending signal was consumed. There is intentionally no misleading per-card trade button: default RUN still attempts the EA's latest pending signal, not an arbitrarily selected card. Original alert details are retained inside each card. Structured status/heartbeat/order reports are not rendered as signal cards; History retains raw received messages.
 
 The separate downloadable OrionBeastFx_Signals_v7.mq5 has exactly the same bytes as mt5/OrionBeastFx_Signals.mq5 inside this ZIP. You do not need an extra custom .mqh to use it. Rebuild/install the matching v7 app; older APKs do not have the async bridge or card reducer.
+
+
+## Floating bot icon diagnosis (v8)
+Tap the round floating bot icon at the lower-right to see the phone receiver state, EA-reported state, server/topic names (not tokens), RUN/STOP, a phone LIVE toggle, and a settings shortcut. No direct phone-to-MT5 socket is used: both endpoints reach the same protected ntfy server. If no EA status arrives, the panel lists the required MT5 PC/VPS, WebRequest, topic and token checks.
