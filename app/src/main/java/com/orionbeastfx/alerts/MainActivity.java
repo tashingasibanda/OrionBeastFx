@@ -65,7 +65,7 @@ public class MainActivity extends Activity {
             if(ok)runOnUiThread(()->bars(dark));return ok;
         }
         @JavascriptInterface public void toggleLive() { runOnUiThread(()->toggleReceiver()); }
-        @JavascriptInterface public String sendBotCommand(String command) {
+        @JavascriptInterface public synchronized String sendBotCommand(String command) {
             String action=command==null?"":command.trim().toUpperCase(java.util.Locale.ROOT);
             if(!action.equals("RUN")&&!action.equals("STOP"))return commandResult(false,"Only explicit RUN or STOP commands are allowed.",null);
             android.content.SharedPreferences p=Store.prefs(MainActivity.this);
@@ -74,9 +74,13 @@ public class MainActivity extends Activity {
             if(commandTopic.equals(Store.topic(MainActivity.this)))return commandResult(false,"The EA command topic must differ from the alert topic.",null);
             if(commandToken.isEmpty())return commandResult(false,"A command access token is required.",null);
             if(!p.getBoolean("commandConfirmed",false))return commandResult(false,"Confirm that the command topic is access-controlled before sending.",null);
+            String controller=p.getString("controllerId","");
+            if(controller.isEmpty())controller=UUID.randomUUID().toString();
             String id=UUID.randomUUID().toString();long sequence=p.getLong("commandSequence",0L)+1L;long now=System.currentTimeMillis()/1000L;
+            if(sequence<=0||sequence>999999999999999L)return commandResult(false,"Command sequence exhausted; configure a new controller.",null);
+            if(!p.edit().putString("controllerId",controller).putLong("commandSequence",sequence).commit())return commandResult(false,"Could not reserve a safe command sequence.",null);
             try {
-                JSONObject body=new JSONObject();body.put("type","bot_command");body.put("action",action);body.put("command_id",id);body.put("sequence",sequence);body.put("requested_at",now);
+                JSONObject body=new JSONObject();body.put("type","bot_command");body.put("action",action);body.put("command_id",id);body.put("sequence",sequence);body.put("requested_at",now);body.put("controller_id",controller);
                 byte[] bytes=body.toString().getBytes(StandardCharsets.UTF_8);
                 URL url=new URL(Store.server(MainActivity.this)+"/"+commandTopic);HttpURLConnection c=(HttpURLConnection)url.openConnection();
                 try {
@@ -108,6 +112,10 @@ public class MainActivity extends Activity {
                 if(!commandTopic.isEmpty()&&!commandConfirmed)return "Confirm that the command topic is access-controlled.";
                 if(commandTopic.isEmpty()){commandToken="";commandConfirmed=false;}
                 if(stale<30||stale>86400)return "Stale threshold must be 30–86400 seconds.";
+                android.content.SharedPreferences previous=Store.prefs(MainActivity.this);
+                if(!s.equals(Store.server(MainActivity.this))||!t.equals(Store.topic(MainActivity.this))||!commandTopic.equals(previous.getString("commandTopic",""))) {
+                    if(!previous.edit().remove("commandState").remove("commandTime").remove("commandId").commit())return "Could not reset the previous control channel status.";
+                }
                 boolean ok=Store.prefs(MainActivity.this).edit().putString("server",s).putString("topic",t).putString("token",token).putInt("stale",stale).putString("commandTopic",commandTopic).putString("commandToken",commandToken).putBoolean("commandConfirmed",commandConfirmed).commit();
                 return ok?"":"Could not save settings to this device.";
             }catch(Exception e){return "Check the server, topic and stale threshold.";}

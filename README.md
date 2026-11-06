@@ -1,3 +1,7 @@
+# OrionBeastFx v6 connection repair
+
+Read EA-INTEGRATION.md before use. MT5 source is in mt5/.
+
 # OrionBeastFx v5 — manual EA controls and dynamic TP display
 
 **This archive is Android source code, not an installable APK.** Build it with the included GitHub Actions workflow, then install the APK from the successful build artifact. Android compilation and phone delivery still need to be verified in your build/device environment. Android 8.0+ is required.

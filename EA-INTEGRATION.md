@@ -1,44 +1,73 @@
-# OrionBeastFx — EA/ntfy integration (v5)
+# OrionBeastFx v6: Android ↔ MT5 connection repair
 
-The Android app receives EA events and can publish explicit Run/Stop requests. The EA source was not supplied or modified. The app alone cannot control MetaTrader, guarantee that the EA starts stopped, calculate a strategy-specific take-profit, or prove that a trade executed. Test all EA changes on a demo account first.
+## What was wrong
+Android v5 publishes authenticated JSON bot_command messages with action RUN/STOP. The old EA accepts only plaintext RUN prefixes, reads without authentication, lacks STOP and publishes no bot_status acknowledgement. A successful HTTP publish was not proof of an order.
 
-## Alert and status events (EA → app)
-POST UTF-8 JSON as a text/plain body to the configured alert topic, for example `https://ntfy.sh/<alert-topic>`. The app accepts the existing `symbol`, `snapshot`, `summary`, and `heartbeat` events. Structured events are not trading recommendations.
+## Behaviour — read before turning trading on
+- The EA starts STOPPED on every load/restart. Scanning may continue while stopped.
+- **Default, AutoTradeWhileRunning=false:** each app RUN attempts the latest unexpired pending signal once. RUN with no pending signal does not place an order. Another signal requires another RUN. The app shows EA READY · manual RUN, not continuous trading.
+- **Optional, AutoTradeWhileRunning=true:** a valid RUN discards old pending signals and arms subsequent fresh signals until STOP. Each fresh signal may open an order, subject to the existing EA checks. This is a deliberate strategy-execution change, not the default.
+- STOP disables new entries and clears the pending queue. It does NOT close or cancel broker orders already submitted and does NOT disable MT5 globally. Existing broker SL/TP remain in place; the supplied EA does not implement trailing-stop management.
+- A new valid RUN can re-enable entries after STOP. Plaintext RUN, RUN ALL, RUN <id> and RUN <symbol> are disabled; the Android buttons send exact JSON RUN or STOP.
+- The original trend/spike signal logic and dynamic SL/TP formulas are unchanged. This is a connection repair, NOT an audit of strategy profitability, volume rounding, risk sizing, margin or netting-account behaviour.
 
-### Dynamic TP display
-For a symbol update, the EA may include its **current calculated target price** as `tp`, plus a short `tp_method` description. The app validates that `tp` is a positive finite price and displays the value and method exactly as reported. Each new symbol update replaces the prior row, so the EA should publish a fresh value whenever its calculation changes.
+## 1. Protect ntfy first
+Use an HTTPS ntfy server that supports tokens and server-side topic ACLs. Pick two distinct topic names using only letters, digits, underscores or hyphens:
+- Alert/status topic: MT5 may publish; the app may subscribe. Do not allow untrusted publishers to spoof status.
+- Command topic: only authorised app clients may publish; MT5 may subscribe. Deny anonymous access, especially publishing.
 
-The app does not derive TP from a fixed number, pip distance, ATR, or risk/reward ratio. The calculation formula and inputs must be implemented in the EA and must match your strategy. No TP price is supplied or invented by this project.
+An unpredictable topic name, an app checkbox or a token alone does NOT make a public topic private. Enforce ACLs on the server. Do not post tokens or broker credentials in topic messages or screenshots. The Android app stores tokens in its private preferences; secure the phone and MT5 host. Use separate least-privilege tokens where the server allows it. No credentials are bundled.
 
-Example schema only (placeholders, not trade advice):
-```json
-{"type":"symbol","symbol":"<broker-symbol>","state":"watch","timeframe":"<timeframe>","tp":"<EA-calculated-price>","tp_method":"<actual method>"}
-```
+## 2. Install/compile in MT5 on Windows PC or VPS
+1. Open MT5 → File → Open Data Folder → MQL5 → Experts. Create an OrionBeastFx folder.
+2. Copy BOTH files from this ZIP's mt5/ folder into it: OrionBeastFx_Signals.mq5 and OrionAppControl.mqh. Keep them together.
+3. Open the .mq5 in MetaEditor and compile. The .mqh is an include, not a separately attachable EA.
+4. MT5 → Tools → Options → Expert Advisors → enable Allow WebRequest for the exact HTTPS ntfy server origin you use.
+5. Attach the EA to ONE chart, not one chart per symbol. It scans the configured symbols itself.
+6. Set inputs:
 
-### EA status acknowledgement
-After processing a command, publish a status event to the **alert** topic so the app can display the EA-reported state:
-```json
-{"type":"bot_status","status":"running","command_id":"<received-command-id>"}
-```
-Use `stopped` when the EA has disabled new entries. This is an EA report over ntfy, not an independently verified broker status.
+| MT5 input | Value |
+|---|---|
+| NtfyServer | Same HTTPS server URL as Android |
+| NtfyTopic | Alert/status topic (same as Android Topic) |
+| CommandTopic | Separate protected command topic (same as Android Command topic) |
+| CommandReadToken | Token permitted to read the command topic |
+| AlertWriteToken | Token permitted to publish to the alert topic |
+| ConfirmProtectedTopics | true ONLY after server ACLs are verified |
+| TradeOnRun | true to permit orders; false remains signal-only and rejects RUN |
+| AutoTradeWhileRunning | false by default; true ONLY if you want continuous fresh-signal entries after RUN |
+| CommandPollSeconds | 2 by default |
+| CommandMaxAgeSeconds | 60 by default |
+| StatusEverySeconds | 30 by default |
 
-## Manual control (app → EA)
-In app Settings, configure a **separate command topic**, a command token, and confirm that the topic has server-side access restrictions. The app keeps Run/Stop locked until these fields are set. Public ntfy topics are readable/publishable by others; a token typed into the app does not itself make a public topic private. Verify the server’s ACLs and use a protected/self-hosted ntfy setup for any command capable of affecting live trades.
+7. Enable Algo Trading and the EA's trading permission only on a DEMO account for testing. Review symbol names, lot/risk inputs, MaxOpenTrades and all broker constraints.
 
-Only a tap on the floating Run or Stop button publishes a command. The request body is a JSON text message to the command topic:
-```json
-{"type":"bot_command","action":"RUN","command_id":"<unique-id>","sequence":1,"requested_at":<unix-seconds>}
-```
-`action` is `RUN` or `STOP`; the app sends an Authorization Bearer header using the configured command token. The `sequence` increases on the device. The ntfy HTTP success response means only that ntfy accepted the publish request.
+**MT5 mobile does not host EAs.** MT5 and the EA must stay running on the PC/VPS. Use one PC/VPS receiver for this account/command channel: a terminal-local lock cannot coordinate different computers. If a crashed EA leaves a receiver lock, remove other instances and restart the terminal. Broker execution still depends on market conditions and trading permissions.
 
-The EA must implement the command listener and its own safety logic. Recommended requirements:
-- Initialize the EA with new entries disabled. Do not auto-trade on EA load, app launch, receiver reconnect, or topic reconnect.
-- Accept only valid, new commands from the protected topic; check command IDs/sequences and reject stale/replayed or malformed requests.
-- RUN may enable new-entry logic only after the EA validates its own risk and market conditions. STOP disables new entries. **STOP does not close existing positions**; keep their normal stop-loss/TP management. Do not close positions unless you explicitly add and test a separate close-all command.
-- Publish `bot_status` to the alert topic after applying the command. Include the same `command_id`, and make status reflect the EA’s actual internal enable/disable state.
-- Independently enforce lot-size, exposure, spread, margin, stop-loss, and daily-loss limits inside the EA. The phone UI is not a risk engine.
+## 3. Build and configure Android
+This archive contains the Android Studio source project, not a precompiled APK.
+- Open OrionBeastFx in Android Studio with JDK 17 and Android SDK 35, sync Gradle, then build a debug APK; or
+- Put the project files at a GitHub repository root and run the included Build OrionBeastFx APK workflow. It installs Gradle 8.9, runs unit tests and assembles app-debug.apk. Publishing/uploading to GitHub is your action, not performed here.
 
-The app does not subscribe to the command topic and cannot know if the EA is listening. It reports the last EA status event and the last request sent; absence of an acknowledgement means status is unknown.
+In the installed app's Settings, set server, alert Topic and alert-read Token. Set Command topic, command-publish Token and access-control acknowledgement. Save. Turn LIVE on and grant notification permission so the app can receive status acknowledgements. The token used on the phone need not be the same token as the EA if permissions differ.
 
-## Existing alerts
-The existing signal/summary formats remain in the source. Use real EA values only. Keep alert and command topics separate. Do not publish broker credentials or sensitive account information in ntfy messages.
+## 4. Demo acceptance checklist
+1. Load EA: app should receive STOPPED within about one heartbeat after LIVE connects. Starting the EA or phone must not place a trade.
+2. Manual mode: wait for a fresh signal, tap RUN once, then inspect app messages AND MT5 Trade/History and Experts logs. An acknowledgement confirms the EA processed a command; it is not independent broker proof of a fill.
+3. Tap STOP: app should show matching STOPPED. Verify new entries are blocked. Existing positions must not be closed by STOP.
+4. Repeat a command ID through a controlled test client: it must not submit a second order. Old/future/malformed and plaintext messages must be rejected. Keep phone and PC UTC clocks synchronised.
+5. Disable Algo Trading: RUN should be rejected with a status note. Disable TradeOnRun: RUN should likewise be rejected; STOP/status polling must still work.
+6. Disconnect the EA/receiver: app must eventually show stale/unconfirmed, never treat an unrelated or same-second old acknowledgement as success.
+7. If you deliberately enable continuous mode, RUN must ignore pre-RUN queued signals and only allow future fresh signals. STOP ends that session. Repeat on demo before considering live use.
+
+## Operational limits
+- Network polling and MT5 WebRequest are synchronous. STOP cannot interrupt an order already being sent or an in-progress scan/request; network failures can prevent delivery entirely. Use MT5/broker controls directly for emergencies. There is no close-all command or offline kill switch.
+- Durable command-ID markers are flushed before any order attempt. After a crash, the design prefers missing a command over submitting the same ID twice; a publish is not an exactly-once execution guarantee. Markers use terminal global variables and their usual retention rules.
+- The updated app supplies a persistent controller UUID and reserves an increasing sequence before publishing. The EA persists a sequence watermark per controller and rejects older/equal sequences, including a delayed RUN after a newer STOP in the same second. Use ONE controlling phone per topic; sequence numbers do not order unrelated phones. Clearing app data creates a new controller identity. Legacy v5 clients without controller_id are rejected: rebuild/install this matching updated app.
+- Poll/heartbeat intervals use a monotonic clock; command expiry still requires correct UTC on the phone, server and PC. Do not send commands with incorrect clocks.
+- The app correlates status to the last requested command ID and marks old reports stale. A valid later external controller's report may leave this phone's request unconfirmed; that is intentional.
+- Protected topics are essential: authentication is enforced by ntfy ACLs, not by cryptographic signatures inside the EA payload.
+- Strategy Tester does not exercise this live WebRequest connection. Use a running demo terminal.
+
+## Verification status
+The supplied source was mechanically integrated, strategy-math sections checked unchanged, and archive integrity checked. A test report in the ZIP records the host-side checks actually performed. No MetaEditor, Android SDK/JDK/Gradle, broker terminal or private ntfy credentials were available in the execution environment. Neither .ex5 nor .apk is supplied or claimed tested. Compile both projects, run the demo checklist and send any real compiler diagnostics back for correction.

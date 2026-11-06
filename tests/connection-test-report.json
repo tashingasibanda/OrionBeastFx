@@ -1,0 +1,46 @@
+{
+  "checks_passed": [
+    "EA includes JSON bridge exactly once",
+    "One command processor; no plaintext fallback",
+    "Startup stopped and optional continuous mode is OFF by default",
+    "Authenticated command subscription",
+    "Authenticated alert/status publishing",
+    "Separate protected topics required",
+    "UTC freshness and future-time checks present",
+    "Replay marker flush precedes trade execution",
+    "Persistent UUID key is channel/account scoped",
+    "Channel singleton guard present",
+    "STOP processed even with trading disabled",
+    "STOP clears queue and never closes broker positions",
+    "Final order gate checks remote STOP",
+    "Continuous mode clears pre-RUN queue",
+    "Signal-only timer still polls STOP/status",
+    "Broker trade limits retained",
+    "No unbounded since=all replay",
+    "Parser source includes escaped-string, root-field and duplicate-key handling",
+    "Persistent controller sequence rejects delayed same-second RUN",
+    "App reserves a persistent controller sequence before sending",
+    "App sends controller UUID in command JSON",
+    "Monotonic timers do not stall on UTC clock correction",
+    "Malformed/future envelope cannot poison event watermark",
+    "Status carries command ID and mode",
+    "Local publication is not claimed to be an EA execution",
+    "Bundled WebView JavaScript parses in Node",
+    "11 actual botState scenarios passed",
+    "EA lexical bracket balance",
+    "Bridge lexical bracket balance"
+  ],
+  "unchanged_strategy_sections": 8,
+  "limitations": [
+    "No Android JDK/SDK/Gradle available; no APK compilation.",
+    "No MetaEditor/MQL5 compiler available; MQL lexical/source checks are not compilation.",
+    "No ntfy network end-to-end test, broker order, or device test performed.",
+    "No .apk or .ex5 included."
+  ],
+  "sources": {
+    "original_ea_sha256": "226b7f5035eb9e399d21846696b224ccb17fa8988a39c57c2474886e8d811268",
+    "original_android_zip_sha256": "dd1f6fb1ecd10c804fcfc810c96e1123ef415151951cc0a2d9d86b7db8f844fe",
+    "patched_ea_sha256": "482f283c391814ba2b575215e2108b3ba3413134f3f5aa70b1131c48ca32c02c",
+    "bridge_sha256": "bebec18b09987d29cdd5c6352d4ed501098611ea446ff02635da44ff3d7b4159"
+  }
+}

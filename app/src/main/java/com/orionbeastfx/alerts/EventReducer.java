@@ -43,6 +43,8 @@ final class EventReducer {
             if(time<out.optLong("bot_status_time",0)) return out;
             JSONObject bot=new JSONObject();bot.put("status",status);bot.put("time",time);
             if(e.has("command_id")){String id=e.getString("command_id").trim();if(id.length()>100)throw new JSONException("invalid command_id");bot.put("command_id",id);}
+            if(e.has("mode")){String mode=e.getString("mode");if(!mode.equals("manual")&&!mode.equals("continuous"))throw new JSONException("invalid control mode");bot.put("mode",mode);}
+            if(e.has("message")){String message=e.getString("message");if(message.length()>2000)throw new JSONException("control message too long");bot.put("message",message);}
             out.put("bot_status",bot);out.put("bot_status_time",time);
         } else if (!"heartbeat".equals(type)) throw new JSONException("Unknown structured event type");
         out.put("last_ea",Math.max(time,out.optLong("last_ea",0)));
